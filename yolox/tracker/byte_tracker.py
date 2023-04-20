@@ -5,21 +5,20 @@ import os.path as osp
 import copy
 import torch
 import torch.nn.functional as F
-
+import itertools
 from .kalman_filter import KalmanFilter
 from yolox.tracker import matching
 from .basetrack import BaseTrack, TrackState
 
 class STrack(BaseTrack):
     shared_kalman = KalmanFilter()
-    def __init__(self, tlwh, score):
-
+    def __init__(self, tlwh, score, count_gen=None):
+        super().__init__(count_gen)
         # wait activate
         self._tlwh = np.asarray(tlwh, dtype=np.float)
         self.kalman_filter = None
         self.mean, self.covariance = None, None
         self.is_activated = False
-
         self.score = score
         self.tracklet_len = 0
 
@@ -147,7 +146,7 @@ class BYTETracker(object):
         self.tracked_stracks = []  # type: list[STrack]
         self.lost_stracks = []  # type: list[STrack]
         self.removed_stracks = []  # type: list[STrack]
-
+        self.track_count_gen = itertools.count(start=1)
         self.frame_id = 0
         self.args = args
         #self.det_thresh = args.track_thresh
@@ -186,7 +185,7 @@ class BYTETracker(object):
 
         if len(dets) > 0:
             '''Detections'''
-            detections = [STrack(STrack.tlbr_to_tlwh(tlbr), s) for
+            detections = [STrack(STrack.tlbr_to_tlwh(tlbr), s, self.track_count_gen) for
                           (tlbr, s) in zip(dets, scores_keep)]
         else:
             detections = []
@@ -223,7 +222,7 @@ class BYTETracker(object):
         # association the untrack to the low score detections
         if len(dets_second) > 0:
             '''Detections'''
-            detections_second = [STrack(STrack.tlbr_to_tlwh(tlbr), s) for
+            detections_second = [STrack(STrack.tlbr_to_tlwh(tlbr), s, self.track_count_gen) for
                           (tlbr, s) in zip(dets_second, scores_second)]
         else:
             detections_second = []
